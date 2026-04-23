@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>辩论赛计时器 - 倒计时系统</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface-light: #1a2744;
+            --text: #e0e0e0;
+            --text-secondary: #a0a0b8;
+            --gold: #f0c060;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --positive: #e74c3c;
+            --positive-dark: #c0392b;
+            --negative: #3b82f6;
+            --negative-dark: #2563eb;
+            --accent-green: #10b981;
+            --border: #2a3a5c;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+        }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{
+            font-family:'PingFang SC','Microsoft YaHei',sans-serif;
+            background:var(--bg);
+            background-image:radial-gradient(ellipse at 50% 0%,rgba(231,76,60,0.08) 0%,transparent 50%),
+                radial-gradient(ellipse at 80% 100%,rgba(59,130,246,0.06) 0%,transparent 50%),
+                radial-gradient(ellipse at 20% 100%,rgba(240,192,96,0.04) 0%,transparent 50%);
+            min-height:100vh;display:flex;align-items:center;justify-content:center;
+            color:var(--text);padding:20px;user-select:none;
+        }
+        .container{
+            width:100%;max-width:750px;background:var(--surface);
+            border-radius:24px;box-shadow:var(--shadow),0 0 0 1px var(--border);
+            padding:24px 24px 18px;display:flex;flex-direction:column;gap:16px;
+            position:relative;overflow:hidden;
+        }
+        .container::before{
+            content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+            width:60%;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);
+            opacity:0.5;border-radius:2px;
+        }
+        .header{text-align:center;display:flex;flex-direction:column;gap:8px;}
+        .header .title{font-size:1.15rem;font-weight:600;letter-spacing:0.04em;display:flex;align-items:center;justify-content:center;gap:8px;}
+        .debate-topic{display:flex;justify-content:center;gap:8px;align-items:center;flex-wrap:wrap;}
+        .debate-topic label{font-weight:600;color:var(--gold);font-size:0.85rem;white-space:nowrap;}
+        .debate-topic input{
+            flex:1;min-width:200px;padding:8px 14px;border-radius:20px;
+            border:2px solid var(--border);background:var(--surface-light);
+            color:var(--text);font-size:0.85rem;text-align:center;outline:none;
+            transition:var(--transition);
+        }
+        .debate-topic input:focus{border-color:var(--gold);box-shadow:0 0 8px rgba(240,192,96,0.3);}
+        .team-names{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+        .team-name-group{
+            display:flex;align-items:center;gap:6px;background:var(--surface-light);
+            padding:6px 12px;border-radius:20px;border:2px solid transparent;
+            transition:var(--transition);
+        }
+        .team-name-group:focus-within{border-color:var(--gold);}
+        .team-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+        .team-dot.positive{background:var(--positive);box-shadow:0 0 8px var(--positive);}
+        .team-dot.negative{background:var(--negative);box-shadow:0 0 8px var(--negative);}
+        .team-name-group label{font-weight:600;font-size:0.8rem;color:var(--text-secondary);}
+        .team-name-group input{
+            width:110px;background:transparent;border:none;border-bottom:1px dashed var(--border);
+            color:var(--text);font-size:0.85rem;text-align:center;outline:none;padding:2px 4px;
+        }
+        .team-name-group input:focus{border-bottom-color:var(--gold);}
+        .progress-bar-wrap{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;}
+        .progress-dot{
+            width:28px;height:5px;border-radius:3px;background:var(--border);
+            transition:all var(--transition);cursor:pointer;
+        }
+        .progress-dot.completed{background:var(--accent-green);box-shadow:0 0 6px rgba(16,185,129,0.4);}
+        .progress-dot.current{background:var(--gold);box-shadow:0 0 10px rgba(240,192,96,0.6);animation:pulse-dot 1.5s infinite;}
+        .progress-dot.attack{background:#6366f1;} .progress-dot.attack.completed{background:#818cf8;}
+        .progress-dot.attack.current{background:#a5b4fc;box-shadow:0 0 12px rgba(99,102,241,0.7);}
+        @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.4}}
+        .phase-info{text-align:center;display:flex;flex-direction:column;gap:4px;}
+        .phase-badge{
+            display:inline-block;padding:4px 14px;border-radius:20px;font-size:0.75rem;
+            font-weight:600;letter-spacing:0.05em;align-self:center;
+        }
+        .badge-positive{background:rgba(231,76,60,0.2);color:#f87171;border:1px solid rgba(231,76,60,0.35);}
+        .badge-negative{background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.35);}
+        .badge-both{background:rgba(240,192,96,0.15);color:#f6d06f;border:1px solid rgba(240,192,96,0.3);}
+        .badge-attack{background:rgba(99,102,241,0.2);color:#a5b4fc;border:1px solid rgba(99,102,241,0.35);}
+        .badge-free{background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35);}
+        .phase-name{font-size:1rem;font-weight:700;letter-spacing:0.03em;}
+        .phase-role{font-size:0.75rem;color:var(--text-secondary);letter-spacing:0.02em;}
+        .timer-main{
+            background:var(--surface-light);border-radius:var(--radius);padding:20px 16px 24px;
+            display:flex;flex-direction:column;align-items:center;gap:8px;
+            border:2px solid var(--border);transition:all var(--transition);
+            min-height:180px;justify-content:center;
+        }
+        .timer-main.warning{border-color:var(--warning);box-shadow:0 0 20px rgba(245,158,11,0.2);}
+        .timer-main.danger{border-color:var(--danger);box-shadow:0 0 28px rgba(239,68,68,0.35);animation:shake-border 0.5s infinite;}
+        @keyframes shake-border{0%,100%{border-color:var(--danger)}50%{border-color:#fca5a5}}
+        .timer-label{font-size:0.8rem;color:var(--text-secondary);letter-spacing:0.05em;}
+        .timer-display{
+            font-size:5.5rem;font-weight:900;font-variant-numeric:tabular-nums;
+            font-family:'SF Mono','JetBrains Mono',Consolas,monospace;
+            cursor:pointer;transition:color var(--transition);line-height:1;
+        }
+        .timer-display.blink-fast{animation:blink-num 0.4s infinite;}
+        @keyframes blink-num{0%,100%{opacity:1}50%{opacity:0.25}}
+        .timer-edit-hint{font-size:0.65rem;color:var(--text-secondary);opacity:0.7;}
+        .timer-reminder{font-size:0.75rem;color:var(--warning);font-weight:600;min-height:1.2em;animation:fade-in-out 1.2s infinite;}
+        @keyframes fade-in-out{0%,100%{opacity:0.5}50%{opacity:1}}
+        .dual-timers{display:flex;gap:12px;width:100%;align-items:stretch;}
+        .dual-card{
+            flex:1;background:var(--surface-light);border-radius:var(--radius-sm);
+            padding:14px 10px;text-align:center;border:2px solid var(--border);
+            transition:all var(--transition);cursor:pointer;display:flex;
+            flex-direction:column;gap:4px;position:relative;overflow:hidden;
+        }
+        .dual-card.active{transform:scale(1.03);z-index:2;}
+        .dual-card.positive-card.active{
+            border-color:#ef4444;box-shadow:0 0 22px rgba(239,68,68,0.45);
+            background:rgba(239,68,68,0.08);
+        }
+        .dual-card.negative-card.active{
+            border-color:#3b82f6;box-shadow:0 0 22px rgba(59,130,246,0.45);
+            background:rgba(59,130,246,0.08);
+        }
+        .dual-card.depleted{opacity:0.4;pointer-events:none;border-style:dashed;background:rgba(0,0,0,0.2);}
+        .dual-card .card-label{font-size:0.78rem;font-weight:700;letter-spacing:0.04em;display:flex;align-items:center;justify-content:center;gap:4px;}
+        .positive-card .card-label{color:#f87171;} .negative-card .card-label{color:#60a5fa;}
+        .dual-card .card-time{
+            font-size:2.4rem;font-weight:900;font-family:'SF Mono','JetBrains Mono',Consolas,monospace;
+            cursor:pointer;transition:color var(--transition);
+        }
+        .positive-card .card-time{color:#fca5a5;} .negative-card .card-time{color:#93c5fd;}
+        .dual-card .card-reminder{font-size:0.7rem;color:var(--warning);font-weight:600;min-height:1em;}
+        .active-indicator{
+            position:absolute;top:8px;right:10px;width:10px;height:10px;
+            border-radius:50%;animation:pulse-dot-active 0.8s infinite;
+        }
+        .positive-card .active-indicator{background:#ef4444;box-shadow:0 0 10px #ef4444;}
+        .negative-card .active-indicator{background:#3b82f6;box-shadow:0 0 10px #3b82f6;}
+        @keyframes pulse-dot-active{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.8);opacity:0.5}}
+        .dual-card.active::after{
+            content:'';position:absolute;inset:-3px;border-radius:12px;pointer-events:none;
+            animation:pulse-ring 1.2s infinite;z-index:-1;
+        }
+        .dual-card.positive-card.active::after{border:2px solid rgba(239,68,68,0.5);}
+        .dual-card.negative-card.active::after{border:2px solid rgba(59,130,246,0.5);}
+        @keyframes pulse-ring{0%,100%{opacity:0.6}50%{opacity:0.15}}
+        .controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;}
+        .btn{
+            padding:10px 18px;border-radius:24px;font-size:0.85rem;font-weight:700;
+            cursor:pointer;border:none;transition:all var(--transition);outline:none;
+            font-family:inherit;white-space:nowrap;display:flex;align-items:center;gap:5px;
+        }
+        .btn:active{transform:scale(0.95);}
+        .btn-start{background:#10b981;color:#fff;box-shadow:0 4px 14px rgba(16,185,129,0.35);font-size:0.95rem;padding:12px 28px;}
+        .btn-start:hover{background:#059669;box-shadow:0 6px 20px rgba(16,185,129,0.5);}
+        .btn-start.running{background:#f59e0b;box-shadow:0 4px 14px rgba(245,158,11,0.35);}
+        .btn-start.running:hover{background:#d97706;}
+        .btn-reset{background:transparent;color:var(--text);border:2px solid var(--border);}
+        .btn-reset:hover{background:rgba(255,255,255,0.04);border-color:#fff;}
+        .btn-prev,.btn-next{background:transparent;color:#f6d06f;border:2px solid rgba(240,192,96,0.4);}
+        .btn-prev:hover,.btn-next:hover{background:rgba(240,192,96,0.08);border-color:var(--gold);}
+        .btn-switch{background:#8b5cf6;color:#fff;box-shadow:0 4px 14px rgba(139,92,246,0.35);padding:12px 24px;font-size:0.95rem;}
+        .btn-switch:hover{background:#7c3aed;}
+        .btn:disabled{opacity:0.4;cursor:not-allowed;pointer-events:none;}
+        .shortcuts{text-align:center;font-size:0.7rem;color:var(--text-secondary);display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+        .shortcuts kbd{display:inline-block;padding:2px 7px;background:var(--surface-light);border-radius:4px;font-size:0.7rem;border:1px solid var(--border);}
+        @media (max-width:600px){
+            .container{padding:16px 10px 12px;gap:12px;}
+            .timer-display{font-size:4rem;}
+            .dual-card .card-time{font-size:2rem;}
+            .btn{padding:8px 14px;font-size:0.75rem;border-radius:20px;}
+            .btn-start{padding:10px 20px;font-size:0.85rem;}
+            .team-name-group input{width:80px;}
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="title"><span>⚖️</span> 辩论赛计时系统</div>
+        <div class="debate-topic">
+            <label>📌 辩题</label>
+            <input type="text" id="debateTopic" placeholder="请输入本场辩论题目...">
+        </div>
+    </div>
+    <div class="team-names">
+        <div class="team-name-group">
+            <span class="team-dot positive"></span>
+            <label>正方</label>
+            <input type="text" id="positiveTeam" placeholder="正方队伍">
+        </div>
+        <div class="team-name-group">
+            <span class="team-dot negative"></span>
+            <label>反方</label>
+            <input type="text" id="negativeTeam" placeholder="反方队伍">
+        </div>
+    </div>
+    <div class="progress-bar-wrap" id="progressBar"></div>
+    <div class="phase-info">
+        <span class="phase-badge" id="phaseBadge">正方</span>
+        <div class="phase-name" id="phaseName"></div>
+        <div class="phase-role" id="phaseRole"></div>
+    </div>
+    <!-- 单计时器（普通环节） -->
+    <div class="timer-main" id="singleTimer">
+        <div class="timer-label">剩余时间</div>
+        <div class="timer-display" id="singleTime" title="点击修改时间">3:00</div>
+        <div class="timer-edit-hint">💡 点击数字可编辑</div>
+        <div class="timer-reminder" id="singleReminder"></div>
+    </div>
+    <!-- 双计时器（攻辩/自由辩论） -->
+    <div class="dual-timers" id="dualTimer" style="display:none;">
+        <div class="dual-card positive-card" id="leftCard">
+            <div class="active-indicator"></div>
+            <div class="card-label" id="leftLabel">正方</div>
+            <div class="card-time" id="leftTime" title="点击修改时间">5:00</div>
+            <div class="card-reminder" id="leftReminder"></div>
+        </div>
+        <div class="dual-card negative-card" id="rightCard">
+            <div class="card-label" id="rightLabel">反方</div>
+            <div class="card-time" id="rightTime" title="点击修改时间">5:00</div>
+            <div class="card-reminder" id="rightReminder"></div>
+        </div>
+    </div>
+    <div class="controls">
+        <button class="btn btn-prev" id="btnPrev">◀ 上一环节</button>
+        <button class="btn btn-start" id="btnStart">▶ 开始</button>
+        <button class="btn btn-reset" id="btnReset">↺ 重置</button>
+        <button class="btn btn-next" id="btnNext">下一环节 ▶</button>
+        <button class="btn btn-switch" id="btnSwitch" style="display:none;">🔄 切换发言方</button>
+    </div>
+    <div class="shortcuts">
+        <span><kbd>空格</kbd> 开始/暂停</span>
+        <span><kbd>R</kbd> 重置</span>
+        <span><kbd>←</kbd> 上一环节</span>
+        <span><kbd>→</kbd> 下一环节</span>
+        <span id="switchShortcut" style="display:none;"><kbd>Tab</kbd> 切换发言方</span>
+    </div>
+</div>
+<script>
+(function(){
+    // 环节定义：0-6共7个主环节
+    const PHASES = [
+        { id:0, name:'正方一辩·开篇立论', role:'阐述本方核心观点、论证逻辑', type:'single', side:'positive', seconds:180, remind:30 },
+        { id:1, name:'反方一辩·开篇立论', role:'清晰陈述本方论点、论据', type:'single', side:'negative', seconds:180, remind:30 },
+        { id:2, name:'双方二辩·攻辩', role:'正方二辩提问→反方二辩回答，随后交换', type:'attack', stages:[
+            {label:'正方二辩提问', side:'positive', seconds:210, remind:30},
+            {label:'反方二辩提问', side:'negative', seconds:210, remind:30}
+        ]},
+        { id:3, name:'双方三辩·攻辩', role:'正方三辩质询→反方三辩质询', type:'attack', stages:[
+            {label:'正方三辩提问', side:'positive', seconds:210, remind:30},
+            {label:'反方三辩提问', side:'negative', seconds:210, remind:30}
+        ]},
+        { id:4, name:'自由辩论', role:'双方交替发言，正方先开始，每方5分钟', type:'free', seconds:300, remind:60 },
+        { id:5, name:'反方四辩·总结陈词', role:'梳理全场，总结核心，反驳漏洞', type:'single', side:'negative', seconds:180, remind:30 },
+        { id:6, name:'正方四辩·总结陈词', role:'全面复盘，升华立场，完善论证', type:'single', side:'positive', seconds:180, remind:30 }
+    ];
+
+    // 状态
+    let currentPhase = 0;
+    let running = false;
+    let timerInterval = null;
+
+    // 单环节状态
+    let singleRemain = PHASES[0].seconds;
+    let singleRemindDone = false;
+    let singleTimeUp = false;
+
+    // 双环节状态（攻辩或自由辩论）
+    let dualState = {
+        // 攻辩模式
+        stageIndex: 0,               // 当前子阶段索引 (0或1)
+        stageRemain: [210,210],     // 两个阶段剩余秒数
+        remindDone: [false,false],
+        timeUp: [false,false],
+        // 自由辩论模式
+        leftRemain: 300,            // 正方
+        rightRemain: 300,           // 反方
+        currentSpeaker: 'left',     // 'left' or 'right'
+        leftRemindDone: false,
+        rightRemindDone: false,
+        leftTimeUp: false,
+        rightTimeUp: false,
+    };
+
+    // DOM
+    const el = {
+        singleTimer: document.getElementById('singleTimer'),
+        dualTimer: document.getElementById('dualTimer'),
+        singleTime: document.getElementById('singleTime'),
+        singleReminder: document.getElementById('singleReminder'),
+        leftCard: document.getElementById('leftCard'),
+        rightCard: document.getElementById('rightCard'),
+        leftTime: document.getElementById('leftTime'),
+        rightTime: document.getElementById('rightTime'),
+        leftLabel: document.getElementById('leftLabel'),
+        rightLabel: document.getElementById('rightLabel'),
+        leftReminder: document.getElementById('leftReminder'),
+        rightReminder: document.getElementById('rightReminder'),
+        phaseBadge: document.getElementById('phaseBadge'),
+        phaseName: document.getElementById('phaseName'),
+        phaseRole: document.getElementById('phaseRole'),
+        btnStart: document.getElementById('btnStart'),
+        btnSwitch: document.getElementById('btnSwitch'),
+        switchShortcut: document.getElementById('switchShortcut'),
+        progressBar: document.getElementById('progressBar'),
+        positiveTeam: document.getElementById('positiveTeam'),
+        negativeTeam: document.getElementById('negativeTeam'),
+        debateTopic: document.getElementById('debateTopic'),
+    };
+
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    function beep(f,d=150,v=0.3){try{let o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(f,ctx.currentTime);g.gain.setValueAtTime(v,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d/1000);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d/1000)}catch(e){}}
+    function remindBeep(){beep(1000,120,0.25)}
+    function timeUpBeep(){beep(600,400,0.35);setTimeout(()=>beep(500,350,0.3),420)}
+
+    function formatTime(s){let m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec;}
+
+    function getTeamName(side){
+        if(side==='positive') return el.positiveTeam.value.trim()||'正方';
+        if(side==='negative') return el.negativeTeam.value.trim()||'反方';
+        return '';
+    }
+
+    function updateLabels(){
+        // 更新双卡片标签
+        let phase = PHASES[currentPhase];
+        if(phase.type==='attack'){
+            el.leftLabel.textContent = phase.stages[0].label;
+            el.rightLabel.textContent = phase.stages[1].label;
+        }else if(phase.type==='free'){
+            el.leftLabel.textContent = '🔴 '+getTeamName('positive');
+            el.rightLabel.textContent = '🔵 '+getTeamName('negative');
+        }
+    }
+
+    el.positiveTeam.addEventListener('input',()=>{updateLabels();updatePhaseInfo();});
+    el.negativeTeam.addEventListener('input',()=>{updateLabels();updatePhaseInfo();});
+
+    function updatePhaseInfo(){
+        let phase = PHASES[currentPhase];
+        if(phase.type==='single'){
+            el.phaseBadge.textContent = getTeamName(phase.side);
+            el.phaseBadge.className = 'phase-badge '+ (phase.side==='positive'?'badge-positive':'badge-negative');
+        }else if(phase.type==='attack'){
+            el.phaseBadge.textContent = '攻辩';
+            el.phaseBadge.className = 'phase-badge badge-attack';
+        }else if(phase.type==='free'){
+            el.phaseBadge.textContent = '自由辩论';
+            el.phaseBadge.className = 'phase-badge badge-free';
+        }
+        el.phaseName.textContent = phase.name;
+        el.phaseRole.textContent = phase.role;
+    }
+
+    function renderProgress(){
+        el.progressBar.innerHTML = '';
+        PHASES.forEach((p,i)=>{
+            let d = document.createElement('span');
+            d.className = 'progress-dot';
+            if(p.type==='attack'||p.type==='free') d.classList.add('attack');
+            if(i<currentPhase) d.classList.add('completed');
+            if(i===currentPhase) d.classList.add('current');
+            d.title = p.name;
+            d.onclick = ()=>{
+                if(running && !confirm('当前正在计时，确定要跳转环节吗？')) return;
+                switchToPhase(i);
+            };
+            el.progressBar.appendChild(d);
+        });
+    }
+
+    function stopTimer(){
+        running = false;
+        clearInterval(timerInterval);
+        timerInterval = null;
+        updateButtons();
+    }
+
+    function switchToPhase(idx){
+        if(idx<0||idx>=PHASES.length) return;
+        stopTimer();
+        currentPhase = idx;
+        let phase = PHASES[idx];
+        if(phase.type==='single'){
+            singleRemain = phase.seconds;
+            singleRemindDone = false;
+            singleTimeUp = false;
+            el.singleTimer.style.display = 'flex';
+            el.dualTimer.style.display = 'none';
+            el.btnSwitch.style.display = 'none';
+            el.switchShortcut.style.display = 'none';
+            el.singleReminder.textContent = '';
+        }else if(phase.type==='attack'){
+            dualState.stageIndex = 0;
+            dualState.stageRemain = [phase.stages[0].seconds, phase.stages[1].seconds];
+            dualState.remindDone = [false, false];
+            dualState.timeUp = [false, false];
+            el.singleTimer.style.display = 'none';
+            el.dualTimer.style.display = 'flex';
+            el.btnSwitch.style.display = 'none';  // 攻辩自动切换，无需手动
+            el.switchShortcut.style.display = 'none';
+            el.leftReminder.textContent = '';
+            el.rightReminder.textContent = '';
+        }else if(phase.type==='free'){
+            dualState.leftRemain = phase.seconds;
+            dualState.rightRemain = phase.seconds;
+            dualState.currentSpeaker = 'left';
+            dualState.leftRemindDone = false;
+            dualState.rightRemindDone = false;
+            dualState.leftTimeUp = false;
+            dualState.rightTimeUp = false;
+            el.singleTimer.style.display = 'none';
+            el.dualTimer.style.display = 'flex';
+            el.btnSwitch.style.display = 'inline-flex';
+            el.switchShortcut.style.display = 'inline';
+            el.leftReminder.textContent = '';
+            el.rightReminder.textContent = '';
+        }
+        updateAllUI();
+    }
+
+    function updateAllUI(){
+        updatePhaseInfo();
+        updateLabels();
+        renderProgress();
+        updateTimerDisplay();
+        updateButtons();
+    }
+
+    function updateTimerDisplay(){
+        let phase = PHASES[currentPhase];
+        if(phase.type==='single'){
+            el.singleTime.textContent = formatTime(singleRemain);
+            if(singleRemain<=phase.remind && singleRemain>0 && running){
+                el.singleReminder.textContent = '⚠ 剩余 '+formatTime(singleRemain);
+            }else if(singleRemain<=0 && singleTimeUp){
+                el.singleReminder.textContent = '⏰ 时间到！';
+            }else{
+                el.singleReminder.textContent = '';
+            }
+            let main = el.singleTimer;
+            main.classList.remove('warning','danger');
+            if(singleRemain<=10 && singleRemain>0 && running) main.classList.add('danger');
+            else if(singleRemain<=phase.remind && singleRemain>10 && running) main.classList.add('warning');
+        }else if(phase.type==='attack'){
+            let si = dualState.stageIndex;
+            el.leftTime.textContent = formatTime(dualState.stageRemain[0]);
+            el.rightTime.textContent = formatTime(dualState.stageRemain[1]);
+            // 卡片高亮
+            el.leftCard.classList.remove('active','depleted');
+            el.rightCard.classList.remove('active','depleted');
+            if(dualState.timeUp[0]) el.leftCard.classList.add('depleted');
+            else if(si===0) el.leftCard.classList.add('active');
+            if(dualState.timeUp[1]) el.rightCard.classList.add('depleted');
+            else if(si===1) el.rightCard.classList.add('active');
+            // 提醒文字
+            if(dualState.timeUp[0]) el.leftReminder.textContent = '⏰ 时间到';
+            else if(dualState.stageRemain[0]<=phase.stages[0].remind && dualState.stageRemain[0]>0 && si===0) el.leftReminder.textContent = '⚠ '+formatTime(dualState.stageRemain[0]);
+            else el.leftReminder.textContent = '';
+            if(dualState.timeUp[1]) el.rightReminder.textContent = '⏰ 时间到';
+            else if(dualState.stageRemain[1]<=phase.stages[1].remind && dualState.stageRemain[1]>0 && si===1) el.rightReminder.textContent = '⚠ '+formatTime(dualState.stageRemain[1]);
+            else el.rightReminder.textContent = '';
+        }else if(phase.type==='free'){
+            el.leftTime.textContent = formatTime(dualState.leftRemain);
+            el.rightTime.textContent = formatTime(dualState.rightRemain);
+            el.leftCard.classList.remove('active','depleted');
+            el.rightCard.classList.remove('active','depleted');
+            if(dualState.leftTimeUp) el.leftCard.classList.add('depleted');
+            else if(dualState.currentSpeaker==='left' && !dualState.leftTimeUp) el.leftCard.classList.add('active');
+            if(dualState.rightTimeUp) el.rightCard.classList.add('depleted');
+            else if(dualState.currentSpeaker==='right' && !dualState.rightTimeUp) el.rightCard.classList.add('active');
+            if(dualState.leftTimeUp) el.leftReminder.textContent = '⏰ 时间到';
+            else if(dualState.leftRemain<=phase.remind && dualState.leftRemain>0 && dualState.currentSpeaker==='left') el.leftReminder.textContent = '⚠ '+formatTime(dualState.leftRemain);
+            else el.leftReminder.textContent = '';
+            if(dualState.rightTimeUp) el.rightReminder.textContent = '⏰ 时间到';
+            else if(dualState.rightRemain<=phase.remind && dualState.rightRemain>0 && dualState.currentSpeaker==='right') el.rightReminder.textContent = '⚠ '+formatTime(dualState.rightRemain);
+            else el.rightReminder.textContent = '';
+        }
+    }
+
+    function updateButtons(){
+        let phase = PHASES[currentPhase];
+        if(phase.type==='single'){
+            if(singleRemain<=0 && singleTimeUp) el.btnStart.disabled = true;
+            else el.btnStart.disabled = false;
+        }else if(phase.type==='attack'){
+            let bothUp = dualState.timeUp[0] && dualState.timeUp[1];
+            el.btnStart.disabled = bothUp;
+        }else if(phase.type==='free'){
+            let bothUp = dualState.leftTimeUp && dualState.rightTimeUp;
+            el.btnStart.disabled = bothUp;
+        }
+        el.btnStart.textContent = running ? '⏸ 暂停' : '▶ 开始';
+        el.btnPrev.disabled = false;
+        el.btnNext.disabled = false;
+    }
+
+    function startTimer(){
+        if(running) return;
+        let phase = PHASES[currentPhase];
+        if(phase.type==='single' && singleRemain<=0) return;
+        if(phase.type==='attack' && dualState.timeUp[0] && dualState.timeUp[1]) return;
+        if(phase.type==='free' && dualState.leftTimeUp && dualState.rightTimeUp) return;
+        running = true;
+        updateButtons();
+        timerInterval = setInterval(tick, 200);
+    }
+
+    function pauseTimer(){
+        running = false;
+        clearInterval(timerInterval);
+        timerInterval = null;
+        updateButtons();
+    }
+
+    function tick(){
+        if(!running) return;
+        let phase = PHASES[currentPhase];
+        if(phase.type==='single'){
+            if(singleRemain>0){
+                singleRemain -= 0.2;
+                if(singleRemain<0) singleRemain=0;
+                if(!singleRemindDone && singleRemain<=phase.remind && singleRemain>0){
+                    singleRemindDone=true; remindBeep();
+                }
+                if(!singleTimeUp && singleRemain<=0.05){
+                    singleTimeUp=true; singleRemain=0; timeUpBeep(); pauseTimer();
+                }
+                updateTimerDisplay(); updateButtons();
+            }
+        }else if(phase.type==='attack'){
+            let si = dualState.stageIndex;
+            if(si<2 && !dualState.timeUp[si]){
+                dualState.stageRemain[si] -= 0.2;
+                if(dualState.stageRemain[si]<0) dualState.stageRemain[si]=0;
+                let rem = dualState.stageRemain[si], remind = phase.stages[si].remind;
+                if(!dualState.remindDone[si] && rem<=remind && rem>0){
+                    dualState.remindDone[si]=true; remindBeep();
+                }
+                if(!dualState.timeUp[si] && rem<=0.05){
+                    dualState.timeUp[si]=true; dualState.stageRemain[si]=0; timeUpBeep();
+                    if(si===0 && !dualState.timeUp[1]){
+                        dualState.stageIndex = 1;
+                    }else{
+                        pauseTimer();
+                    }
+                }
+                updateTimerDisplay(); updateButtons();
+            }
+        }else if(phase.type==='free'){
+            if(dualState.currentSpeaker==='left' && !dualState.leftTimeUp){
+                dualState.leftRemain -= 0.2;
+                if(dualState.leftRemain<0) dualState.leftRemain=0;
+                if(!dualState.leftRemindDone && dualState.leftRemain<=phase.remind && dualState.leftRemain>0){
+                    dualState.leftRemindDone=true; remindBeep();
+                }
+                if(!dualState.leftTimeUp && dualState.leftRemain<=0.05){
+                    dualState.leftTimeUp=true; dualState.leftRemain=0; timeUpBeep();
+                    if(!dualState.rightTimeUp) dualState.currentSpeaker='right';
+                    else pauseTimer();
+                }
+            }else if(dualState.currentSpeaker==='right' && !dualState.rightTimeUp){
+                dualState.rightRemain -= 0.2;
+                if(dualState.rightRemain<0) dualState.rightRemain=0;
+                if(!dualState.rightRemindDone && dualState.rightRemain<=phase.remind && dualState.rightRemain>0){
+                    dualState.rightRemindDone=true; remindBeep();
+                }
+                if(!dualState.rightTimeUp && dualState.rightRemain<=0.05){
+                    dualState.rightTimeUp=true; dualState.rightRemain=0; timeUpBeep();
+                    if(!dualState.leftTimeUp) dualState.currentSpeaker='left';
+                    else pauseTimer();
+                }
+            }
+            updateTimerDisplay(); updateButtons();
+        }
+    }
+
+    function resetTimer(){
+        stopTimer();
+        switchToPhase(currentPhase);
+    }
+
+    // 手动编辑时间
+    function promptEditTime(currentSec, callback){
+        let min = Math.floor(currentSec/60);
+        let sec = Math.floor(currentSec%60);
+        let input = prompt('输入新时间（格式：分:秒，例如 3:30）', min+':'+(sec<10?'0':'')+sec);
+        if(input){
+            let parts = input.split(':');
+            if(parts.length===2){
+                let m = parseInt(parts[0]), s = parseInt(parts[1]);
+                if(!isNaN(m) && !isNaN(s) && m>=0 && s>=0 && s<60){
+                    callback(m*60 + s);
+                }else alert('格式错误，请输入 分:秒');
+            }else alert('格式错误，请输入 分:秒');
+        }
+    }
+
+    el.singleTime.addEventListener('click', ()=>{
+        if(running){ alert('请先暂停计时'); return; }
+        let phase = PHASES[currentPhase];
+        if(phase.type!=='single') return;
+        promptEditTime(singleRemain, (newSec)=>{
+            singleRemain = newSec;
+            singleRemindDone = false;
+            singleTimeUp = false;
+            updateAllUI();
+        });
+    });
+
+    el.leftTime.addEventListener('click', ()=>{
+        if(running){ alert('请先暂停计时'); return; }
+        let phase = PHASES[currentPhase];
+        if(phase.type==='attack'){
+            promptEditTime(dualState.stageRemain[0], (newSec)=>{
+                dualState.stageRemain[0] = newSec;
+                dualState.remindDone[0] = false;
+                dualState.timeUp[0] = false;
+                updateAllUI();
+            });
+        }else if(phase.type==='free'){
+            promptEditTime(dualState.leftRemain, (newSec)=>{
+                dualState.leftRemain = newSec;
+                dualState.leftRemindDone = false;
+                dualState.leftTimeUp = false;
+                updateAllUI();
+            });
+        }
+    });
+
+    el.rightTime.addEventListener('click', ()=>{
+        if(running){ alert('请先暂停计时'); return; }
+        let phase = PHASES[currentPhase];
+        if(phase.type==='attack'){
+            promptEditTime(dualState.stageRemain[1], (newSec)=>{
+                dualState.stageRemain[1] = newSec;
+                dualState.remindDone[1] = false;
+                dualState.timeUp[1] = false;
+                updateAllUI();
+            });
+        }else if(phase.type==='free'){
+            promptEditTime(dualState.rightRemain, (newSec)=>{
+                dualState.rightRemain = newSec;
+                dualState.rightRemindDone = false;
+                dualState.rightTimeUp = false;
+                updateAllUI();
+            });
+        }
+    });
+
+    function switchSpeaker(){
+        let phase = PHASES[currentPhase];
+        if(phase.type!=='free' || !running) return;
+        if(dualState.currentSpeaker==='left' && !dualState.rightTimeUp) dualState.currentSpeaker='right';
+        else if(dualState.currentSpeaker==='right' && !dualState.leftTimeUp) dualState.currentSpeaker='left';
+        updateAllUI();
+    }
+
+    el.btnSwitch.addEventListener('click', switchSpeaker);
+    el.leftCard.addEventListener('click', ()=>{
+        if(PHASES[currentPhase].type==='free' && running && dualState.currentSpeaker==='right' && !dualState.leftTimeUp) switchSpeaker();
+    });
+    el.rightCard.addEventListener('click', ()=>{
+        if(PHASES[currentPhase].type==='free' && running && dualState.currentSpeaker==='left' && !dualState.rightTimeUp) switchSpeaker();
+    });
+
+    el.btnStart.addEventListener('click', ()=> running?pauseTimer():startTimer());
+    el.btnReset.addEventListener('click', resetTimer);
+    el.btnPrev.addEventListener('click', ()=>{
+        if(running && !confirm('当前正在计时，确定要跳转环节吗？')) return;
+        if(currentPhase>0) switchToPhase(currentPhase-1);
+    });
+    el.btnNext.addEventListener('click', ()=>{
+        if(running && !confirm('当前正在计时，确定要跳转环节吗？')) return;
+        if(currentPhase<PHASES.length-1) switchToPhase(currentPhase+1);
+    });
+
+    document.addEventListener('keydown', (e)=>{
+        if(e.target.tagName==='INPUT') return;
+        if(e.key===' '){ e.preventDefault(); if(running)pauseTimer();else startTimer(); }
+        else if(e.key==='r'||e.key==='R'){ e.preventDefault(); resetTimer(); }
+        else if(e.key==='ArrowLeft'){ e.preventDefault(); if(running && !confirm('当前正在计时，确定要跳转环节吗？')) return; if(currentPhase>0)switchToPhase(currentPhase-1); }
+        else if(e.key==='ArrowRight'){ e.preventDefault(); if(running && !confirm('当前正在计时，确定要跳转环节吗？')) return; if(currentPhase<PHASES.length-1)switchToPhase(currentPhase+1); }
+        else if(e.key==='Tab' && PHASES[currentPhase].type==='free' && running){ e.preventDefault(); switchSpeaker(); }
+    });
+
+    // 初始化
+    switchToPhase(0);
+    updateLabels();
+})();
+</script>
+</body>
+</html>
